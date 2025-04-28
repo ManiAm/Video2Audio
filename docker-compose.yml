@@ -1,0 +1,129 @@
+services:
+
+  db_auth:
+    image: postgres
+    container_name: db_auth
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_auth_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db_mongo:
+    image: mongo
+    container_name: db_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - db_mongo_data:/data/db
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/27017"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:4.1-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # RabbitMQ Management UI (guest/guest)
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+#################
+
+  auth_service:
+    build: ./auth_service
+    container_name: auth_service
+    hostname: auth_service
+    ports:
+      - "5001:5001"
+    depends_on:
+      db_auth:
+        condition: service_healthy
+    networks:
+      - app_network
+
+#################
+
+  convertor_service1:
+    build: ./convertor_service
+    container_name: convertor_service1
+    hostname: convertor_service1
+    depends_on:
+      db_mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  convertor_service2:
+    build: ./convertor_service
+    container_name: convertor_service2
+    hostname: convertor_service2
+    depends_on:
+      db_mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app_network
+
+#################
+
+  upload_service:
+    build: ./upload_service
+    container_name: upload_service
+    hostname: upload_service
+    ports:
+      - "5003:5003"
+    depends_on:
+      db_mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    hostname: frontend
+    ports:
+      - "5002:5002"
+    depends_on:
+      auth_service:
+        condition: service_started
+      upload_service:
+        condition: service_started
+    networks:
+      - app_network
+
+volumes:
+  db_auth_data:
+  db_mongo_data:
+  rabbitmq_data:
+
+networks:
+  app_network:
+    driver: bridge
