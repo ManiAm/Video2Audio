@@ -126,25 +126,17 @@ To further improve message delivery guarantees, the system could implement the f
 
 The frontend is the user-facing component of the system. It is built using Flask and provides a lightweight web interface that enables users to interact with the backend services. This service handles all user interactions including:
 
-- Registration:
+- User Registration:
 
-  New users can sign up by providing a username, password, and email address.
+  New users can sign up by providing a username, password, and email address. These credentials are sent to the auth_service, where they are stored after password hashing.
 
-  These credentials are sent to the auth_service, where they are stored after password hashing.
+- User Authentication:
 
-- Login:
-
-  Existing users authenticate with their credentials.
-
-  Upon successful login, a JWT token is issued by the auth_service and stored in Flask session cookies.
-
-  This enables secure, authenticated requests to the backend without repeatedly asking the user to log in.
+  Existing users authenticate with their credentials. Upon successful login, a JWT token is issued by the auth_service and stored in Flask session cookies. This enables secure, authenticated requests to the backend without repeatedly asking the user to log in.
 
 - Video Upload:
 
-  Authenticated users can upload video files through a simple web form.
-
-  The uploaded file, along with the JWT token, is forwarded to the upload_service for processing.
+  Authenticated users can upload video files through a simple web form. The uploaded file, along with the JWT token, is forwarded to the upload_service for processing.
 
 Here is a summary of endpoints:
 
@@ -189,6 +181,10 @@ You will be able to:
 - Extract and store audio from the video
 - Receive an email notification with download link to the audio file
 
+Uploaded videos and extracted audio files in MongoDB are automatically deleted after 1 hour.
+
+## Demo
+
 <img src="pics/demo.gif" alt="segment">
 
 Docker logs from the converter_service shows successful audio extraction:
@@ -201,8 +197,6 @@ MoviePy - Done.
 Saving audio track to MongoDB
 Audio created: 68116259f0d87e4f062f9407. Sending email to nima@gmail.com...
 ```
-
-Uploaded videos and extracted audio files in MongoDB are automatically deleted after 1 hour.
 
 ## User Interaction Flow
 
@@ -226,18 +220,38 @@ The following shows the user interaction flow:
 
     Once the JWT token is obtained and stored, the frontend redirects the user to the upload interface by issuing a `GET /upload` request. The upload page (upload.html) provides a form where users can select and submit a video file. Upon form submission, a `POST /upload` request is sent to the frontend, which then forwards the file along with the user's JWT to the upload_service.
 
-    The upload_service validates the JWT, extracts user identity, and saves the uploaded video file to MongoDB using GridFS, which is optimized for handling large binary files. Upon successful storage, the service publishes a message containing the video_id and associated metadata to the video_queue in RabbitMQ, enabling asynchronous processing.
+    The upload_service validates the JWT, extracts user identity, and saves the uploaded video file to MongoDB using GridFS, which is optimized for handling large binary files. Upon successful storage, the service publishes a message containing the video_id and associated metadata to the **video_queue** in RabbitMQ, enabling asynchronous processing.
 
 4. Audio Conversion and Notification
 
-    The video_queue is monitored by multiple instances of the converter_service, which act as workers. RabbitMQ dispatches the message to one of the available workers. The selected converter_service retrieves the video file from MongoDB using the provided video_id, processes the file using MoviePy to extract the audio stream, and stores the resulting .mp3 audio file back into MongoDB.
+    The **video_queue** is monitored by multiple instances of the converter_service, which act as workers. RabbitMQ dispatches the message to one of the available workers. The selected converter_service retrieves the video file from MongoDB using the provided video_id, processes the file using MoviePy to extract the audio stream, and stores the resulting .mp3 audio file back into MongoDB.
 
     Upon successful extraction and storage, the converter_service sends an email notification to the user using the email address obtained during registration. The message informs the user that the audio file is ready for download, completing the asynchronous video-to-audio conversion workflow.
 
-## Telemetry
+## RabbitMQ Telemetry
 
+We are running a RabbitMQ server with the management plugin enabled, providing a web-based interface at:
 
-send MQTT status using telegraf to DB and visualize it
+    http://localhost:15672
 
-monitor msg queue status using telegraf
+Through this portal, you can monitor active connections including two instances of converter_service:
 
+<img src="pics/connections.jpg" alt="segment" width="800">
+
+As well as detailed metrics for the video_queue, such as queue depth (number of messages currently held in the queue) and message rates (how fast messages are being handled by the queue):
+
+<img src="pics/queues.jpg" alt="segment" width="800">
+
+To collect telemetry data from RabbitMQ, I have configured Telegraf with the native RabbitMQ input [plugin](https://github.com/influxdata/telegraf/blob/master/plugins/inputs/rabbitmq/README.md). This allows Telegraf to periodically gather statistics from the broker's management API. The collected metrics are then forwarded to an InfluxDB time-series database running on a different Raspberry Pi node (Zeus), enabling historical analysis, monitoring, and visualization of RabbitMQ performance over time.
+
+#### Broker-wide Health
+
+<img src="pics/broker_wide_health.jpg" alt="segment" width="900">
+
+#### Resource Usage & System Load
+
+<img src="pics/resource_usage.jpg" alt="segment" width="900">
+
+#### Per-Queue Performance
+
+<img src="pics/per_queue_performance.jpg" alt="segment" width="900">
