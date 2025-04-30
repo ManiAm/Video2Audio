@@ -55,7 +55,7 @@ Upon successful registration, the server responds with:
 {"message":"Registered successfully"}
 ```
 
-In the backend, the system securely stores user credentials in a PostgreSQL database. Passwords are never stored in plaintext. Instead, they are hashed using a cryptographically secure algorithm — `bcrypt`. Unlike basic hashing methods, bcrypt applies a salt (a random value) to each password before hashing, providing strong protection against rainbow table attacks. It is intentionally computationally expensive, making brute-force attacks significantly harder by slowing down each password guess attempt. This approach ensures that even if the database is compromised, user credentials remain strongly protected.
+In the backend, the system securely stores user credentials in a PostgreSQL database. Passwords are never stored in plaintext. Instead, they are hashed using a cryptographically secure algorithm - `bcrypt`. Unlike basic hashing methods, bcrypt applies a salt (a random value) to each password before hashing, providing strong protection against rainbow table attacks. It is intentionally computationally expensive, making brute-force attacks significantly harder by slowing down each password guess attempt. This approach ensures that even if the database is compromised, user credentials remain strongly protected.
 
 #### User Login
 
@@ -89,7 +89,7 @@ After successful authentication, the obtained JWT token can also be used to secu
 Here is a POST request to send a MP4 video file to the upload service:
 
 ```bash
-curl -X POST http://upload_service:5003/upload \
+curl -X POST http://localhost:5003/upload \
   -H "Authorization: Bearer <your_jwt_token>" \
   -F "file=@/path/to/your/video.mp4"
 ```
@@ -126,26 +126,11 @@ To further improve message delivery guarantees, the system could implement the f
 
 The frontend is the user-facing component of the system. It is built using Flask and provides a lightweight web interface that enables users to interact with the backend services. This service handles all user interactions including:
 
-- User Registration:
+- User Registration: New users can sign up by providing a username, password, and email address. These credentials are sent to the auth_service, where they are stored after password hashing.
 
-  New users can sign up by providing a username, password, and email address. These credentials are sent to the auth_service, where they are stored after password hashing.
+- User Authentication: Existing users authenticate with their credentials. Upon successful login, a JWT token is issued by the auth_service and stored in Flask session cookies. This enables secure, authenticated requests to the backend without repeatedly asking the user to log in.
 
-- User Authentication:
-
-  Existing users authenticate with their credentials. Upon successful login, a JWT token is issued by the auth_service and stored in Flask session cookies. This enables secure, authenticated requests to the backend without repeatedly asking the user to log in.
-
-- Video Upload:
-
-  Authenticated users can upload video files through a simple web form. The uploaded file, along with the JWT token, is forwarded to the upload_service for processing.
-
-Here is a summary of endpoints:
-
-| Route            | Description                                               |
-|------------------|-----------------------------------------------------------|
-| `/register`      | User registration form (POSTs to `auth_service`)          |
-| `/` or `/login`  | User login form (retrieves JWT token on success)          |
-| `/upload`        | Upload interface for sending video files to the backend   |
-| `/upload_success`| Displays a success message once the video is uploaded     |
+- Video Upload: Authenticated users can upload video files through a simple web form. The uploaded file, along with the JWT token, is forwarded to the upload_service for processing.
 
 ## Getting Started
 
