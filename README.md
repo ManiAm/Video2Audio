@@ -206,8 +206,33 @@ Uploaded videos and extracted audio files in MongoDB are automatically deleted a
 
 ## User Interaction Flow
 
+The following shows the user interaction flow:
 
+<img src="pics/video2audio.jpeg" alt="segment" width="900">
 
+1. User Registration
+
+    When a new user accesses the application for the first time, they may initiate the registration process by navigating to the registration page, typically linked from the login screen. This triggers a `GET /register` request on the frontend, which renders a registration form prompting the user to provide a username, password, and email address.
+
+    Upon form submission, the frontend issues a `POST /register` request to the auth_service, passing the user-provided credentials in JSON format. On the backend, the auth_service securely hashes the password using the bcrypt algorithm before persisting the record in the PostgreSQL database. If registration is successful, the service responds with a confirmation message, allowing the user to proceed with authentication.
+
+2. User Authentication
+
+    To initiate an authenticated session, the user navigates to the login page via a `GET /` request. This serves the login form (login.html) from the frontend, where the user is prompted to enter their username and password. As the user is not yet authenticated, access to protected resources is restricted at this point.
+
+    When the login form is submitted, the frontend sends a `POST /login` request to the auth_service, supplying the credentials in JSON format. The service retrieves the corresponding user record from PostgreSQL and verifies the password using bcrypt. Upon successful authentication, a signed JWT token is issued and returned to the frontend. This token is temporarily stored in a secure session store and is included in subsequent requests to authenticate the user.
+
+3. Video Upload
+
+    Once the JWT token is obtained and stored, the frontend redirects the user to the upload interface by issuing a `GET /upload` request. The upload page (upload.html) provides a form where users can select and submit a video file. Upon form submission, a `POST /upload` request is sent to the frontend, which then forwards the file along with the user's JWT to the upload_service.
+
+    The upload_service validates the JWT, extracts user identity, and saves the uploaded video file to MongoDB using GridFS, which is optimized for handling large binary files. Upon successful storage, the service publishes a message containing the video_id and associated metadata to the video_queue in RabbitMQ, enabling asynchronous processing.
+
+4. Audio Conversion and Notification
+
+    The video_queue is monitored by multiple instances of the converter_service, which act as workers. RabbitMQ dispatches the message to one of the available workers. The selected converter_service retrieves the video file from MongoDB using the provided video_id, processes the file using MoviePy to extract the audio stream, and stores the resulting .mp3 audio file back into MongoDB.
+
+    Upon successful extraction and storage, the converter_service sends an email notification to the user using the email address obtained during registration. The message informs the user that the audio file is ready for download, completing the asynchronous video-to-audio conversion workflow.
 
 ## Telemetry
 
