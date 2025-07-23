@@ -110,17 +110,9 @@ Multiple instances of the converter_service are subscribed to the same queue (vi
 
 To prevent data loss in the event of a broker crash, service failure, or network disruption, the following message durability mechanisms are implemented:
 
-- Durable Queue: The video_queue is declared with the `durable=True` flag. This instructs RabbitMQ to persist the queue definition and metadata to disk, ensuring it survives broker restarts. The queue and its bindings are automatically restored when the broker comes back online.
+- **Durable Queue**: The video_queue is declared with the `durable=True` flag. This instructs RabbitMQ to persist the queue definition and metadata to disk, ensuring it survives broker restarts. The queue and its bindings are automatically restored when the broker comes back online.
 
-- Persistent Messages: Messages sent by the upload_service are flagged as persistent by setting the `delivery_mode=2` property. This ensures that messages are written to disk by the broker instead of being held solely in memory. As a result, messages are not lost if the broker crashes before they are consumed.
-
-To further improve message delivery guarantees, the system could implement the following:
-
-- Manual Acknowledgements (basic_ack): Ensures messages are only removed from the queue after a consumer confirms successful processing.
-
-- Publisher Confirms: Allows the producer (upload_service) to be notified when a message is successfully stored by the broker.
-
-- Mandatory Flag: Ensures messages are returned to the producer if they cannot be routed to a queue, preventing silent message drops.
+- **Persistent Messages**: Messages sent by the upload_service are flagged as persistent by setting the `delivery_mode=2` property. This ensures that messages are written to disk by the broker instead of being held solely in memory. As a result, messages are not lost if the broker crashes before they are consumed.
 
 ### Frontend
 
